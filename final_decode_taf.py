@@ -71,7 +71,7 @@ def generate_datetime_list(start, end):
 date_list = generate_datetime_list(start_day+start_hour,end_day+end_hour)
 print(date_list)
 rows = list(range(25))
-df = pd.DataFrame(np.nan, index = rows, columns= ['Airport', 'Date', 'Wind_dir','Wind_int', 'Visibility', 'Phen', 'Cloud_cover', 'Cloud_height'])
+df = pd.DataFrame(np.nan, index = rows, columns= ['Airport', 'Date', 'Wind_dir','Wind_int', 'Visibility', 'Phen', 'Cloud_cover_1', 'Cloud_height_1','Cloud_cover_2', 'Cloud_height_2','Cloud_cover_3', 'Cloud_height_3'])
 df['Airport'][:]=airport
 df['Date'][:] = date_list[:]
 df['Wind_dir'][:] = wind[:3]
@@ -107,16 +107,27 @@ list_idx_changes = idx_becmg+idx_tempo
 list_idx_changes.sort()
 
 taf_change = taf_split[list_idx_changes[0]+1:list_idx_changes[1]-1]
-date_change = taf_change[0]
+idx_wind = [i for i, x in enumerate(taf_change) if x.endswith('KT')]
+idx_cloud = [i for i, x in enumerate(taf_change) if x.startswith(('SCT','FEW','BKN','OVC'))]
+visibility = [element for element in taf_change if len(element) == 4 and element.isdigit()]
 
+date_change = taf_change[0]
+wind = taf_change[idx_wind[0]]
+cloud_cover = taf_change[idx_cloud[0]]
+print(cloud_cover)
 start_day = date_change[:2]
 start_hour = date_change[2:4]
-end_day = date_change[5:7]
-end_hour = date_change[7:]
-date_list = generate_datetime_list(start_day+start_hour,end_day+end_hour)
-print(df[df['Date']>date_list[0]&df['Date']<date_list[2]])
 
-print(start_day,start_hour,end_day,end_hour)
-print(date_change)
+date_list = generate_datetime_list(start_day+start_hour,end_day+end_hour)
+start_idx = (df['Date'] < date_list[0]).sum()
+df['Wind_dir'][start_idx+1:24] = wind[:3]
+df['Wind_int'][start_idx+1:24] = wind[3:5]
+
+df['Cloud_cover_1'][start_idx+1:24] = cloud_cover[:3]
+df['Cloud_height_1'][start_idx+1:24] = cloud_cover[3:]
+df['Visibility'][start_idx+1:24] = visibility[0]
+
+#print(start_day,start_hour,end_day,end_hour)
+print(df)
 
 #HASTA AHORA FECHAS Y AEROPUERTO#
