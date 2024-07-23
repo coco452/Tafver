@@ -4,79 +4,67 @@ import itertools
 import pandas as pd
 import numpy as np
 
+cloud = ['FEW','SCT','BKN','OVC','CB','TCU']
+
 def extract_metada(taf):
     sep_taf = taf.split()
-    len_taf = len(sep_taf)
-
-    type_message = sep_taf[0]
-    special = ['AMD' , 'COR', 'CAVOK']
+    special = ['AMD' , 'COR']
 
     if sep_taf[1] in special:
         airport = sep_taf[2]
         date_validity = sep_taf[4]
         wind = sep_taf[5]
-        visibility = 9999
+        visibility = 9999 if sep_taf[6]=='CAVOK' else sep_taf[6]
     else:
         airport = sep_taf[1]
         date_validity = sep_taf[3]
         wind = sep_taf[4]
-        visibility[5]
+        visibility = 9999 if sep_taf[5]=='CAVOK' else sep_taf[5]
+   
     return airport , date_validity , wind, visibility
-taf_data = "TAF COR SABE 041700Z 0418/0518 30005KT 9999 SCT010 OVC030 TX04/0418Z TNM06/0511Z BECMG 0420/0422 36005KT 9999 NSW SCT030 OVC060 BECMG 0512/0514 VRB05KT 9999 SHSN BKN025 OVC050"
 
-airport , date_validity , wind ,visibility = extract_metada(taf_data)
+taf_data = "TAF AMD SADF 231140Z 2312/2412 02005KT 0300 FG OVC002 TX20/2318Z TN14/2410Z TEMPO 2312/2314 0100 FG OVC001 BECMG 2314/2316 8000 BKN010 BECMG 2321/2323 09010KT 5000 BR BKN008 BECMG 2403/2405 0800 FG OVC004"
+
+airport , date_validity , wind , visibility = extract_metada(taf_data)
 
 start_day = date_validity[:2]
 start_hour = date_validity[2:4]
-
 end_day = date_validity[5:7]
 end_hour = date_validity[7:9]
 
-print(start_day,start_hour,end_day,end_hour)
-
 def generate_datetime_list(start, end):
-    # Extract month and day from start and end
     start_day = int(start[:2])
     start_hour = int(start[2:])
     end_day = int(end[:2])
     end_hour = int(end[2:])
     
-    # Assume both dates are in the same month
     month = datetime.now().month
     year = datetime.now().year
     
-    # Define the start and end datetime objects
     start_date = datetime(year, month, start_day, start_hour)
     end_date = datetime(year, month, end_day, end_hour)
     
-    # Handle month wrapping (e.g., end date in the next month)
     if end_day < start_day:
         end_date = end_date.replace(month=month + 1)
     
-    # Create a list to store the datetime objects
     date_list = []
-
-    # Generate the list of datetime objects incrementing by one hour
     current_date = start_date
     while current_date <= end_date:
         date_list.append(current_date)
         current_date += timedelta(hours=1)
-
-    # Print the results
-
-    for date in date_list:
-        print(date.strftime('%d%H'))
+    
     return date_list
 
-date_list = generate_datetime_list(start_day+start_hour,end_day+end_hour)
-print(date_list)
+date_list = generate_datetime_list(start_day+start_hour, end_day+end_hour)
+
 rows = list(range(25))
-df = pd.DataFrame(np.nan, index = rows, columns= ['Airport', 'Date', 'Wind_dir','Wind_int', 'Visibility', 'Phen', 'Cloud_cover_1', 'Cloud_height_1','Cloud_cover_2', 'Cloud_height_2','Cloud_cover_3', 'Cloud_height_3'])
-df['Airport'][:]=airport
-df['Date'][:] = date_list[:]
-df['Wind_dir'][:] = wind[:3]
-df['Wind_int'][:] = wind[3:5]
-print(df)
+df = pd.DataFrame(None, index=rows, columns=['Airport', 'Date', 'Wind_dir', 'Wind_int', 'Visibility', 'Phen', 'Cloud_cover_1', 'Cloud_height_1', 'Cloud_cover_2', 'Cloud_height_2', 'Cloud_cover_3', 'Cloud_height_3'])
+df.loc[:,'Airport']= airport
+df.loc[:,'Date']= date_list[:]
+df.loc[:,'Wind_dir'] = wind[:3]
+df.loc[:,'Wind_int'] = wind[3:5]
+df.loc[:,'Visibility'] = visibility
+
 taf_split = taf_data.split()
 
 def index_tx(taf_split):
@@ -98,36 +86,105 @@ def index_changes(taf_split):
     idx_changes.sort()
     return idx_changes, idx_becmg , idx_tempo , idx_prob
 
+IDX_TX=index_tx(taf_split)[0]
+taf_ini = taf_split[:IDX_TX[0]]
 
-idx_becmg = [i for i, x in enumerate(taf_split) if x.startswith('BECMG')]
-idx_tempo = [i for i, x in enumerate(taf_split) if x.startswith('TEMPO')]
-print(len(idx_tempo))
-print(len(idx_becmg))
-list_idx_changes = idx_becmg+idx_tempo
-list_idx_changes.sort()
+idx_wind = [i for i, x in enumerate(taf_ini) if x.endswith('KT')]
+taf_mid = taf_ini[idx_wind[0]:]
 
-taf_change = taf_split[list_idx_changes[0]+1:list_idx_changes[1]-1]
-idx_wind = [i for i, x in enumerate(taf_change) if x.endswith('KT')]
-idx_cloud = [i for i, x in enumerate(taf_change) if x.startswith(('SCT','FEW','BKN','OVC'))]
-visibility = [element for element in taf_change if len(element) == 4 and element.isdigit()]
+idx_cloud = [i for i, x in enumerate(taf_mid) if x.startswith(('SCT','FEW','BKN','OVC'))]
+print(idx_cloud)
+def index_tx(taf_split):
+    idx_tx = [i for i, x in enumerate(taf_split) if x.startswith('TX')]
+    idx_tn = [i for i, x in enumerate(taf_split) if x.startswith('TN')]
+    return idx_tx, idx_tn
 
-date_change = taf_change[0]
-wind = taf_change[idx_wind[0]]
-cloud_cover = taf_change[idx_cloud[0]]
-print(cloud_cover)
-start_day = date_change[:2]
-start_hour = date_change[2:4]
+IDX_TX = index_tx(taf_split)[0]
+taf_ini = taf_split[:IDX_TX[0]]
 
-date_list = generate_datetime_list(start_day+start_hour,end_day+end_hour)
-start_idx = (df['Date'] < date_list[0]).sum()
-df['Wind_dir'][start_idx+1:24] = wind[:3]
-df['Wind_int'][start_idx+1:24] = wind[3:5]
+idx_wind = [i for i, x in enumerate(taf_ini) if x.endswith('KT')]
+taf_mid = taf_ini[idx_wind[0]:]
 
-df['Cloud_cover_1'][start_idx+1:24] = cloud_cover[:3]
-df['Cloud_height_1'][start_idx+1:24] = cloud_cover[3:]
-df['Visibility'][start_idx+1:24] = visibility[0]
+idx_cloud = [i for i, x in enumerate(taf_mid) if x.startswith(('SCT','FEW','BKN','OVC'))]
 
-#print(start_day,start_hour,end_day,end_hour)
+idx_phen = [i for i, x in enumerate(taf_mid) if any(sub in x for sub in ('RA', 'BR', 'FG', 'DZ', 'SH', 'SN', 'BL', 'DU', 'VC', 'MI','NSW'))]
+if idx_phen:
+    phen = taf_mid[idx_phen[0]]
+    df.loc[:, 'Phen'] = phen
+
+if not idx_cloud:
+    df.loc[:,'Cloud_cover_1'] = "NSC"
+    df.loc[:,'Cloud_height_1'] = None
+    df.loc[:,'Cloud_cover_2'] = "NSC"
+    df.loc[:,'Cloud_height_2'] = None
+    df.loc[:,'Cloud_cover_3'] = "NSC"
+    df.loc[:,'Cloud_height_3'] = None
+else:
+    for idx in range(len(idx_cloud)):
+        cloud_cover = taf_mid[idx_cloud[idx]]
+        df.loc[:,f'Cloud_cover_{idx+1}'] = cloud_cover[:3]
+        df.loc[:,f'Cloud_height_{idx+1}'] = cloud_cover[3:]
+
+def index_changes(taf_split):
+    idx_becmg = [i for i, x in enumerate(taf_split) if x.startswith('BECMG')]
+    idx_tempo = [i for i, x in enumerate(taf_split) if x.startswith('TEMPO')]
+    idx_prob = [i for i, x in enumerate(taf_split) if x.startswith('PROB')]
+    idx_changes = idx_becmg + idx_tempo + idx_prob 
+    idx_changes.sort()
+    return idx_changes, idx_becmg, idx_tempo, idx_prob
+
+def update_taf(taf_change, df, end_day, end_hour):
+    print(f'Processing change: {taf_change}')
+    date_change = taf_change[0]
+    start_day = date_change[:2]
+    start_hour = date_change[2:4]
+
+    date_list = generate_datetime_list(start_day + start_hour, end_day + end_hour)
+    start_idx = (df['Date'] < date_list[0]).sum()
+
+    idx_wind = [i for i, x in enumerate(taf_change) if x.endswith('KT')]
+    if idx_wind:
+        wind = taf_change[idx_wind[0]]
+        df.loc[start_idx+1:, 'Wind_dir'] = wind[:3]
+        df.loc[start_idx+1:, 'Wind_int'] = wind[3:5]
+   
+    idx_cloud = [i for i, x in enumerate(taf_change) if x.startswith(('SCT','FEW','BKN','OVC'))]
+    print(f'Cloud indices: {idx_cloud}')
+    if idx_cloud:
+        for idx in range(len(idx_cloud)):
+            cloud_cover = taf_change[idx_cloud[idx]]
+            df.loc[start_idx+1:, f'Cloud_cover_{idx+1}'] = cloud_cover[:3]
+            df.loc[start_idx+1:, f'Cloud_height_{idx+1}'] = cloud_cover[3:]
+
+    idx_phen = [i for i, x in enumerate(taf_change) if any(sub in x for sub in ('RA', 'BR', 'FG', 'DZ', 'SH', 'SN', 'BL', 'DU', 'VC', 'MI','NSW'))]
+    if idx_phen:
+        phen = taf_change[idx_phen[0]]
+        df.loc[start_idx+1:, 'Phen'] = phen
+
+    visibility = [element for element in taf_change if len(element) == 4 and element.isdigit()]
+    if visibility:
+        df.loc[start_idx+1:, 'Visibility'] = visibility[0]
+    
+    idx_cavok = [i for i, x in enumerate(taf_change) if 'CAVOK' in x]
+    if idx_cavok:
+        df.loc[start_idx+1:, 'Visibility'] = 9999
+        df.loc[start_idx+1:, 'Phen'] = 'NSW'
+        df.loc[start_idx+1:, 'Cloud_cover_1'] = 'NSC'
+        df.loc[start_idx+1:, 'Cloud_height_1'] = None
+        df.loc[start_idx+1:, 'Cloud_cover_2'] = 'NSC'
+        df.loc[start_idx+1:, 'Cloud_height_2'] = None
+        df.loc[start_idx+1:, 'Cloud_cover_3'] = 'NSC'
+        df.loc[start_idx+1:, 'Cloud_height_3'] = None
+
+    return df
+
+idx_changes, idx_becmg, idx_tempo, idx_prob = index_changes(taf_split)
+
+for k in range(len(idx_becmg)):
+    if k != len(idx_becmg) - 1:
+        taf_change = taf_split[idx_becmg[k] + 1 : idx_becmg[k + 1]]
+    else:
+        taf_change = taf_split[idx_becmg[k] + 1 :]
+    df = update_taf(taf_change, df, end_day, end_hour)
+
 print(df)
-
-#HASTA AHORA FECHAS Y AEROPUERTO#
